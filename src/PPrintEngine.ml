@@ -554,32 +554,32 @@ let rec pretty
   match doc with
 
   | Empty ->
-      continue output state cont
+      continue false output state cont
 
   | Char c ->
       output#char c;
       state.column <- state.column + 1;
       (* assert (ok state flatten); *)
-      continue output state cont
+      continue false output state cont
 
   | String s ->
       let len = String.length s in
       output#substring s 0 len;
       state.column <- state.column + len;
       (* assert (ok state flatten); *)
-      continue output state cont
+      continue false output state cont
 
   | FancyString (s, ofs, len, apparent_length) ->
       output#substring s ofs len;
       state.column <- state.column + apparent_length;
       (* assert (ok state flatten); *)
-      continue output state cont
+      continue false output state cont
 
   | Blank n ->
       blanks output n;
       state.column <- state.column + n;
       (* assert (ok state flatten); *)
-      continue output state cont
+      continue false output state cont
 
   | HardLine ->
       (* We cannot be in flattening mode, because a hard line has an [infinity]
@@ -588,12 +588,11 @@ let rec pretty
       assert (not flatten);
       (* Emit a hardline. *)
       output#char '\n';
-      blanks output indent;
       state.line <- state.line + 1;
       state.column <- indent;
       state.last_indent <- indent;
       (* Continue. *)
-      continue output state cont
+      continue true output state cont
 
   | IfFlat (doc1, doc2) ->
       (* Pick an appropriate sub-document, based on the current flattening
@@ -639,17 +638,20 @@ let rec pretty
       (* Sanity check. *)
       assert (ok state flatten);
       (* Continue. *)
-      continue output state cont
+      continue false output state cont
 
-and continue output state = function
+and continue hardline output state = function
   | KNil ->
       ()
   | KCons (indent, flatten, doc, cont) ->
+      if hardline then (
+        blanks output indent;
+      );
       pretty output state indent flatten doc cont
   | KRange (hook, start, cont) ->
       let finish : point = (state.line, state.column) in
       hook (start, finish);
-      continue output state cont
+      continue hardline output state cont
 
 (* Publish a version of [pretty] that does not take an explicit continuation.
    This function may be used by authors of custom documents. We do not expose
